@@ -1,0 +1,116 @@
+//Create table in Hive
+
+CREATE TABLE rollerCoaster(park_id int,
+theme string,
+rollercoaster_type string,
+custom_design int,
+excitement double,
+excitement_rating string,
+intensity double,
+intensity_rating string,
+nausea double,
+nausea_rating string,
+max_speed double,
+avg_speed double,
+ride_time int,
+ride_length int,
+max_pos_gs double,
+max_neg_gs double,
+max_lateral_gs double,
+total_air_time double,
+drops int,
+highest_drop_height int,
+inversions int)
+
+ROW FORMAT DELIMITED FIELDS TERMINATED BY ','
+LOCATION "/user/srikarthik/rollercoaster";
+
+
+//Q1: Number of rollercoaster type based on excitement and nausea and also print theme name
+
+SELECT theme, excitement_rating,nausea_rating, count(rollercoaster_type) FROM rollerCoaster GROUP BY theme,excitement_rating,nausea_rating ORDER BY theme;
+
+//Q2: No of rollercoaster where grouping based on excitement level and drop height  
+
+a) where excitement level is highest(very high) and drop_height>50 
+b) where excitement level is high and drop_height>50 and also print the park_id.
+
+
+SELECT park_id, excitement_rating,count(rollercoaster_type) as rollercoaster_count FROM rollercoaster	 WHERE highest_drop_height > 50 AND (excitement_rating LIKE 'Very High' OR excitement_rating LIKE 'High') GROUP BY excitement_rating,park_id;
+
+//Q3: Find out the name of rollercoaster_type, excitement_level intensity _level and nausea_level where total_air_time is max and find out the total_air_time of that row whose excitement_level intensity _level and nausea_level is similar to row where total_air_time is maximum.
+
+
+select  distinct c.total_air_time,c.rollercoaster_type FROM
+(SELECT rollercoaster_type, excitement_rating, intensity_rating, nausea_rating FROM rollercoaster r1 where r1.total_air_time in (select max(r2.total_air_time) from rollercoaster r2 ) ) as b JOIN (select rollercoaster_type, excitement_rating, intensity_rating, nausea_rating, total_air_time from rollercoaster) AS C ON b.nausea_rating=c.nausea_rating and c.excitement_rating=b.excitement_rating and c.intensity_rating=b.intensity_rating;
+
+
+//Q4:Find out the name of rollercoaster_type, excitement_level ,intensity _level and nausea_level
+where avg_speed is max and compare the max_speed of that row whose excitement_level
+intensity _level and nausea_level is similar to row where avg_speed is maximum.
+
+SELECT DISTINCT B.rollercoaster_type, B.avg_speed  FROM(SELECT rollercoaster_type, excitement_rating, intensity_rating, nausea_rating
+FROM rollercoaster WHERE avg_speed IN (SELECT MAX(avg_speed) FROM rollercoaster))A JOIN (SELECT rollercoaster_type, excitement_rating, intensity_rating, nausea_rating, avg_speed
+FROM rollercoaster) AS B WHERE A.excitement_rating=B.excitement_rating and A.intensity_rating = B.intensity_rating AND A.nausea_rating=B.nausea_rating;
+
+//Q5: Find out the parkid and rollercoaster type where no of drop is greater than 10 and have same excitement _level.
+
+SELECT DISTINCT b.park_id, b.rollercoaster_type, b.excitement_rating FROM 
+(SELECT park_id, rollercoaster_type,excitement_rating FROM rollercoaster WHERE drops>10) c join( SELECT park_id, rollercoaster_type, excitement_rating FROM rollercoaster WHERE drops>10)b WHERE c.excitement_rating=b.excitement_rating;
+
+
+//Q6: Group rollercoaster_type based on custom_design where excitement level is high.
+
+SELECT custom_design, count(rollercoaster_type)  FROM rollercoaster WHERE excitement_rating='High' group by custom_design;
+
+//Q7: If ride_length is greater than 2000 and max_speed is greater than 50 so what is the level of excitement and nausea.
+
+SELECT excitement_rating, nausea_rating, COUNT(excitement_rating), COUNT(nausea_rating) FROM rollercoaster WHERE ride_length>2000 AND max_speed >50 GROUP BY excitement_rating, nausea_rating;
+
+//Q8: Park_name(theme) where atleast 2 rides excitement level is high.
+
+SELECT theme, COUNT(ride_length) FROM rollercoaster WHERE excitement_rating ='High' GROUP BY theme HAVING COUNT(ride_length)>=2;
+
+//Q9: In which roller coaster ride excitement level and avg_speed is highest.
+
+SELECT rollercoaster_type FROM rollercoaster WHERE avg_speed IN (SELECT max(a.avg_speed) FROM rollercoaster a where a.excitement_rating="Very High");
+
+//Q10: Name of Rollercoaster where total_air_time is greater than 5 but still excitement_level is not very high.
+
+SELECT rollercoaster_type FROM rollercoaster WHERE total_air_time >5 and excitement_rating<>"Very High";
+
+//Q11: If ride_length is greater than 3000 then find out avg_speed and excitement_level , group excitement_level based on avg_speed(>30 and >40).
+
+SELECT GetGroupAvgSpeed,COUNT(excitement_rating) FROM(
+SELECT (CASE WHEN avg_speed<30 THEN "avg_speed<30" WHEN avg_speed>30 and avg_speed<40 THEN "avg_speed>30&&avg_speed<40"  WHEN avg_speed>40 THEN "avg_speed>40" END) AS GetGroupAvgSpeed, avg_speed , excitement_rating FROM rollercoaster WHERE ride_length>3000)tab GROUP BY GetGroupAvgSpeed;
+
+
+
+//Q12: When max_pos> 4 and max_neg is <-1 then find out the name of rollercoaster where intensity_level is greater than excitement_level.
+
+SELECT rollercoaster_type FROM rollercoaster WHERE max_pos_gs >4 AND max_neg_gs <-1  AND intensity > excitement;
+
+//Q13: When max_pos>= 4 and max_neg is <=-1 count the no of rollercoaster grouping based on Intensity_level greater than equal or less than excitement_level and find out the same When max_pos>= 4 and max_neg is <=-1 condition is not true.
+
+SELECT GroupByIGTE, COUNT(rollercoaster_type) FROM
+
+(SELECT  (CASE WHEN intensity_level > excitement_level THEN "Intensity Greater than Excitement" WHEN intensity_level = excitement_level THEN "Intensity Equal To Excitement" WHEN intensity_level < excitement_level THEN "Intensity Less than Excitement" END) AS GroupByIGTE, rollercoaster_type
+
+FROM 
+
+(SELECT rollercoaster_type, 
+ 
+(CASE WHEN intensity_rating ="Very High" THEN 3 WHEN intensity_rating=="High" THEN 2 WHEN intensity_rating=="Medium" THEN 1 WHEN intensity_rating=="Low" THEN 0 END) AS intensity_level,
+ 
+(CASE WHEN excitement_rating=="Very High" THEN 3 WHEN excitement_rating=="High" THEN 2 WHEN excitement_rating=="Medium" THEN 1 WHEN excitement_rating=="Low" THEN 0 END)AS excitement_level
+  
+FROM rollercoaster WHERE max_pos_gs >=4 AND max_neg_gs <=-1 )temp) temp2 GROUP BY GroupByIGTE;
+
+
+//Q14: When nausea_level is low that what is the value of excitement_level.
+
+SELECT excitement_rating, COUNT(excitement_rating) FROM rollercoaster WHERE nausea_rating LIKE 'Low' GROUP BY excitement_rating;
+
+//Q15: Group rollercoaster_type based on custom_design where intensity level is very high and ride_length is greater than 2000.
+
+SELECT custom_design, COUNT(rollercoaster_type) FROM rollercoaster WHERE intensity_rating LIKE 'Very High' AND ride_length >2000 GROUP BY custom_design;
